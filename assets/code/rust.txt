@@ -1,0 +1,91 @@
+fn factorial(n: u64) -> u64 {
+    if n == 0 {
+        return 1;
+    }
+    n * factorial(n - 1)
+}
+
+fn main() {
+    for i in 0..10 {
+        println!("{}", factorial(i));
+    }
+}
+---
+fn is_prime(n: u64) -> bool {
+    if n < 2 {
+        return false;
+    }
+    let limit = (n as f64).sqrt() as u64;
+    for i in 2..=limit {
+        if n % i == 0 {
+            return false;
+        }
+    }
+    true
+}
+---
+use std::collections::HashMap;
+
+fn word_count(text: &str) -> HashMap<&str, usize> {
+    let mut counts = HashMap::new();
+    for word in text.split_whitespace() {
+        *counts.entry(word).or_insert(0) += 1;
+    }
+    counts
+}
+---
+struct Stack<T> {
+    items: Vec<T>,
+}
+
+impl<T> Stack<T> {
+    fn new() -> Self {
+        Stack { items: Vec::new() }
+    }
+
+    fn push(&mut self, item: T) {
+        self.items.push(item);
+    }
+
+    fn pop(&mut self) -> Option<T> {
+        self.items.pop()
+    }
+
+    fn is_empty(&self) -> bool {
+        self.items.is_empty()
+    }
+}
+---
+fn merge_sort(arr: &mut Vec<i32>) {
+    let len = arr.len();
+    if len <= 1 {
+        return;
+    }
+    let mid = len / 2;
+    let mut left = arr[..mid].to_vec();
+    let mut right = arr[mid..].to_vec();
+    merge_sort(&mut left);
+    merge_sort(&mut right);
+    let mut i = 0;
+    let mut j = 0;
+    let mut k = 0;
+    while i < left.len() && j < right.len() {
+        if left[i] <= right[j] {
+            arr[k] = left[i];
+            i += 1;
+        } else {
+            arr[k] = right[j];
+            j += 1;
+        }
+        k += 1;
+    }
+}
+---
+use std::fs;
+use std::io::{self, BufRead};
+
+fn read_lines(path: &str) -> io::Result<Vec<String>> {
+    let file = fs::File::open(path)?;
+    let reader = io::BufReader::new(file);
+    reader.lines().collect()
+}

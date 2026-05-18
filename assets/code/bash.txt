@@ -1,0 +1,57 @@
+#!/bin/bash
+for file in *.txt; do
+    echo "Processing: $file"
+    wc -l "$file"
+done
+---
+#!/bin/bash
+backup_dir="$HOME/backups"
+mkdir -p "$backup_dir"
+timestamp=$(date +%Y%m%d_%H%M%S)
+tar -czf "$backup_dir/backup_$timestamp.tar.gz" "$1"
+echo "Backup saved to $backup_dir"
+---
+#!/bin/bash
+check_service() {
+    if systemctl is-active --quiet "$1"; then
+        echo "$1 is running"
+    else
+        echo "$1 is stopped"
+        systemctl start "$1"
+    fi
+}
+
+check_service nginx
+check_service postgresql
+---
+#!/bin/bash
+log_file="/var/log/app.log"
+error_count=$(grep -c "ERROR" "$log_file")
+warn_count=$(grep -c "WARN" "$log_file")
+
+echo "Errors: $error_count"
+echo "Warnings: $warn_count"
+
+if [ "$error_count" -gt 10 ]; then
+    echo "Too many errors, alerting..."
+fi
+---
+#!/bin/bash
+deploy() {
+    local env="$1"
+    echo "Deploying to $env..."
+    git pull origin main
+    cargo build --release
+    cp target/release/app /usr/local/bin/
+    systemctl restart app
+    echo "Deploy complete"
+}
+
+deploy production
+---
+#!/bin/bash
+find . -name "*.log" -type f | while read -r file; do
+    size=$(du -sh "$file" | cut -f1)
+    modified=$(stat -c "%y" "$file" | cut -d" " -f1)
+    echo "$modified  $size  $file"
+done

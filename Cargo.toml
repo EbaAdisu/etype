@@ -1,0 +1,27 @@
+[package]
+name = "etype"
+version = "0.1.0"
+edition = "2021"
+description = "A fully local, terminal-based typing trainer — four modes, XP system, key heatmap"
+license = "MIT"
+readme = "README.md"
+keywords = ["typing", "tui", "terminal", "wpm", "practice"]
+categories = ["command-line-utilities", "games"]
+exclude = [".github", "docs", "CLAUDE.md"]
+
+[lib]
+name = "etype"
+path = "src/lib.rs"
+
+[[bin]]
+name = "etype"
+path = "src/main.rs"
+
+[dependencies]
+ratatui = "0.29"
+crossterm = "0.28"
+rusqlite = { version = "0.31", features = ["bundled"] }
+serde = { version = "1", features = ["derive"] }
+rand = "0.8"
+chrono = "0.4"
+anyhow = "1"
