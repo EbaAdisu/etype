@@ -166,6 +166,17 @@ fn handle_key(
         return Ok(());
     }
 
+    // Tab toggles the finger guide in any game screen
+    if key == KeyCode::Tab
+        && matches!(
+            app.screen,
+            Screen::WordRush(_) | Screen::Sentence(_) | Screen::Code(_) | Screen::Survival(_)
+        )
+    {
+        app.show_finger_guide = !app.show_finger_guide;
+        return Ok(());
+    }
+
     match &app.screen.clone() {
         Screen::Menu => handle_menu(app, conn, key)?,
         Screen::DifficultySelect {

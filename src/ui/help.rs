@@ -49,6 +49,10 @@ pub fn render_help(f: &mut Frame) {
             Span::styled("  Ctrl+W       ", Style::default().fg(Color::Cyan)),
             Span::raw("Clear entire current input"),
         ]),
+        Line::from(vec![
+            Span::styled("  Tab          ", Style::default().fg(Color::Cyan)),
+            Span::raw("Toggle finger guide (hands + keyboard)"),
+        ]),
         Line::from(""),
         Line::from(vec![Span::styled(
             "Navigation",
