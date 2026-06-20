@@ -1,10 +1,13 @@
 use crate::engine::finger::{key_finger, Finger, Hand};
+use ratatui::layout::Rect;
 use ratatui::style::{Color, Modifier, Style};
 use ratatui::text::{Line, Span};
 use ratatui::widgets::{Block, Borders, Paragraph};
 use ratatui::Frame;
 
 // ── Colour palette ────────────────────────────────────────────────────────────
+
+const BORDER: Color = Color::DarkGray;
 
 fn finger_color(hand: Hand, finger: Finger) -> Color {
     match finger {
@@ -19,264 +22,194 @@ fn finger_color(hand: Hand, finger: Finger) -> Color {
     }
 }
 
-fn key_style(hand: Hand, finger: Finger, active: bool) -> Style {
-    let color = finger_color(hand, finger);
-    if active {
+fn finger_name(f: Finger) -> &'static str {
+    match f {
+        Finger::Pinky => "PINKY",
+        Finger::Ring => "RING",
+        Finger::Middle => "MIDDLE",
+        Finger::Index => "INDEX",
+        Finger::Thumb => "THUMB",
+    }
+}
+
+fn hand_name(h: Hand) -> &'static str {
+    match h {
+        Hand::Left => "LEFT",
+        Hand::Right => "RIGHT",
+    }
+}
+
+// ── Keyboard layout ───────────────────────────────────────────────────────────
+
+const ROW_TOP: &[char] = &['q', 'w', 'e', 'r', 't', 'y', 'u', 'i', 'o', 'p'];
+const ROW_HOME: &[char] = &['a', 's', 'd', 'f', 'g', 'h', 'j', 'k', 'l', ';'];
+const ROW_BOT: &[char] = &['z', 'x', 'c', 'v', 'b', 'n', 'm'];
+
+/// A horizontal grid border line, e.g. `╭───┬───┬───╮`.
+fn border_line(indent: usize, n: usize, left: char, mid: char, right: char) -> Line<'static> {
+    let mut s = String::new();
+    s.push(left);
+    for i in 0..n {
+        s.push_str("───");
+        s.push(if i + 1 < n { mid } else { right });
+    }
+    Line::from(vec![
+        Span::raw(" ".repeat(indent)),
+        Span::styled(s, Style::default().fg(BORDER)),
+    ])
+}
+
+fn sep() -> Span<'static> {
+    Span::styled("│", Style::default().fg(BORDER))
+}
+
+/// One row of keycaps, e.g. `│ Q │ W │ E │`, with the active key lit in its
+/// finger colour and the F / J home keys underlined.
+fn cells_line(indent: usize, keys: &[char], active: Option<char>) -> Line<'static> {
+    let mut spans = vec![Span::raw(" ".repeat(indent)), sep()];
+    for &k in keys {
+        let (hand, finger) = key_finger(k)
+            .map(|h| (h.hand, h.finger))
+            .unwrap_or((Hand::Left, Finger::Pinky));
+        let color = finger_color(hand, finger);
+        let upper = k.to_ascii_uppercase();
+
+        if active == Some(k) {
+            let st = Style::default()
+                .fg(Color::Black)
+                .bg(color)
+                .add_modifier(Modifier::BOLD);
+            spans.push(Span::styled(format!(" {} ", upper), st));
+        } else if k == 'f' || k == 'j' {
+            // Home-row markers: underline the bump keys.
+            let st = Style::default()
+                .fg(color)
+                .add_modifier(Modifier::UNDERLINED | Modifier::BOLD);
+            spans.push(Span::raw(" "));
+            spans.push(Span::styled(upper.to_string(), st));
+            spans.push(Span::raw(" "));
+        } else {
+            spans.push(Span::styled(
+                format!(" {} ", upper),
+                Style::default().fg(color),
+            ));
+        }
+        spans.push(sep());
+    }
+    Line::from(spans)
+}
+
+/// A connected keycap grid for one or more equal-width rows.
+fn grid(indent: usize, rows: &[&[char]], active: Option<char>) -> Vec<Line<'static>> {
+    let n = rows[0].len();
+    let mut out = vec![border_line(indent, n, '╭', '┬', '╮')];
+    for (i, row) in rows.iter().enumerate() {
+        out.push(cells_line(indent, row, active));
+        if i + 1 < rows.len() {
+            out.push(border_line(indent, n, '├', '┼', '┤'));
+        }
+    }
+    out.push(border_line(indent, n, '╰', '┴', '╯'));
+    out
+}
+
+// ── Cue + legend ──────────────────────────────────────────────────────────────
+
+/// The headline telling the player which key and finger comes next.
+fn cue_line(next: Option<char>) -> Line<'static> {
+    let mut spans = vec![Span::styled("  next ▶  ", Style::default().fg(Color::Gray))];
+    match next {
+        Some(' ') => {
+            let white = Style::default()
+                .fg(Color::White)
+                .add_modifier(Modifier::BOLD);
+            spans.push(Span::styled("␣", white));
+            spans.push(Span::raw("     "));
+            spans.push(Span::styled("RIGHT THUMB", white));
+            spans.push(Span::styled("  (space)", Style::default().fg(BORDER)));
+        }
+        Some(c) => match key_finger(c) {
+            Some(h) => {
+                let color = finger_color(h.hand, h.finger);
+                let st = Style::default().fg(color).add_modifier(Modifier::BOLD);
+                spans.push(Span::styled(c.to_ascii_uppercase().to_string(), st));
+                spans.push(Span::raw("     "));
+                spans.push(Span::styled(
+                    format!("{} {}", hand_name(h.hand), finger_name(h.finger)),
+                    st,
+                ));
+            }
+            None => spans.push(Span::styled(
+                c.to_string(),
+                Style::default()
+                    .fg(Color::White)
+                    .add_modifier(Modifier::BOLD),
+            )),
+        },
+        None => spans.push(Span::styled("ready", Style::default().fg(BORDER))),
+    }
+    Line::from(spans)
+}
+
+fn space_line(active: bool) -> Line<'static> {
+    let style = if active {
         Style::default()
             .fg(Color::Black)
-            .bg(color)
+            .bg(Color::White)
             .add_modifier(Modifier::BOLD)
     } else {
-        Style::default().fg(color)
-    }
-}
-
-// ── Key → finger lookup table ─────────────────────────────────────────────────
-
-const ROWS: &[&[char]] = &[
-    &['q', 'w', 'e', 'r', 't', 'y', 'u', 'i', 'o', 'p'],
-    &['a', 's', 'd', 'f', 'g', 'h', 'j', 'k', 'l', ';'],
-    &['z', 'x', 'c', 'v', 'b', 'n', 'm'],
-];
-
-// ── ASCII hand art ────────────────────────────────────────────────────────────
-//
-// Each hand is 5 rows tall:
-//
-//   Row 0  ┌─┐ ┌─┐ ┌─┐ ┌─┐
-//   Row 1  │ │ │ │ │ │ │ │
-//   Row 2  │ │ │ │ │ │ │ │  ┌─┐
-//   Row 3  └─┘ └─┘ └─┘ └─┘  │ │
-//   Row 4                    └─┘
-//
-// Left hand fingers (L→R): Pinky Ring Middle Index  (thumb appears rows 2-4)
-// Right hand (L→R):        Thumb  Index Middle Ring Pinky
-
-fn finger_box_top(hand: Hand, finger: Finger, active: bool) -> Vec<Span<'static>> {
-    let s = key_style(hand, finger, active);
-    vec![Span::styled("┌─┐", s)]
-}
-
-fn finger_box_mid(hand: Hand, finger: Finger, active: bool) -> Vec<Span<'static>> {
-    let s = key_style(hand, finger, active);
-    if active {
-        vec![Span::styled("│█│", s)]
-    } else {
-        vec![Span::styled("│ │", s)]
-    }
-}
-
-fn finger_box_bot(hand: Hand, finger: Finger, active: bool) -> Vec<Span<'static>> {
-    let s = key_style(hand, finger, active);
-    vec![Span::styled("└─┘", s)]
-}
-
-fn sp(n: usize) -> Span<'static> {
-    Span::raw(" ".repeat(n))
-}
-
-/// Build the 5 rows of the hands display.
-/// `hint` is the (hand, finger) that should shine right now.
-fn build_hand_rows(active: Option<(Hand, Finger)>) -> Vec<Line<'static>> {
-    let is_active =
-        |h: Hand, f: Finger| -> bool { active.is_some_and(|(ah, af)| ah == h && af == f) };
-
-    // Aliases for brevity
-    let (lp, lr, lm, li, lt) = (
-        is_active(Hand::Left, Finger::Pinky),
-        is_active(Hand::Left, Finger::Ring),
-        is_active(Hand::Left, Finger::Middle),
-        is_active(Hand::Left, Finger::Index),
-        is_active(Hand::Left, Finger::Thumb),
-    );
-    let (rt, ri, rm, rr, rp) = (
-        // Right thumb shows even for space (mapped to Right Thumb)
-        active.is_some_and(|(_, f)| f == Finger::Thumb),
-        is_active(Hand::Right, Finger::Index),
-        is_active(Hand::Right, Finger::Middle),
-        is_active(Hand::Right, Finger::Ring),
-        is_active(Hand::Right, Finger::Pinky),
-    );
-
-    // Row 0: four main fingers of each hand (no thumbs yet)
-    let row0 = Line::from(
-        [
-            finger_box_top(Hand::Left, Finger::Pinky, lp),
-            vec![sp(1)],
-            finger_box_top(Hand::Left, Finger::Ring, lr),
-            vec![sp(1)],
-            finger_box_top(Hand::Left, Finger::Middle, lm),
-            vec![sp(1)],
-            finger_box_top(Hand::Left, Finger::Index, li),
-            vec![sp(8)], // gap between hands
-            finger_box_top(Hand::Right, Finger::Index, ri),
-            vec![sp(1)],
-            finger_box_top(Hand::Right, Finger::Middle, rm),
-            vec![sp(1)],
-            finger_box_top(Hand::Right, Finger::Ring, rr),
-            vec![sp(1)],
-            finger_box_top(Hand::Right, Finger::Pinky, rp),
-        ]
-        .concat(),
-    );
-
-    // Row 1: mid of four fingers
-    let row1 = Line::from(
-        [
-            finger_box_mid(Hand::Left, Finger::Pinky, lp),
-            vec![sp(1)],
-            finger_box_mid(Hand::Left, Finger::Ring, lr),
-            vec![sp(1)],
-            finger_box_mid(Hand::Left, Finger::Middle, lm),
-            vec![sp(1)],
-            finger_box_mid(Hand::Left, Finger::Index, li),
-            vec![sp(8)],
-            finger_box_mid(Hand::Right, Finger::Index, ri),
-            vec![sp(1)],
-            finger_box_mid(Hand::Right, Finger::Middle, rm),
-            vec![sp(1)],
-            finger_box_mid(Hand::Right, Finger::Ring, rr),
-            vec![sp(1)],
-            finger_box_mid(Hand::Right, Finger::Pinky, rp),
-        ]
-        .concat(),
-    );
-
-    // Row 2: mid of four fingers + thumb tops appear
-    let lt_s = key_style(Hand::Left, Finger::Thumb, lt);
-    let rt_s = key_style(Hand::Right, Finger::Thumb, rt);
-    let row2 = Line::from(
-        [
-            finger_box_mid(Hand::Left, Finger::Pinky, lp),
-            vec![sp(1)],
-            finger_box_mid(Hand::Left, Finger::Ring, lr),
-            vec![sp(1)],
-            finger_box_mid(Hand::Left, Finger::Middle, lm),
-            vec![sp(1)],
-            finger_box_mid(Hand::Left, Finger::Index, li),
-            vec![sp(1), Span::styled("┌─┐", lt_s), sp(1)], // left thumb top
-            vec![Span::styled("┌─┐", rt_s), sp(1)],        // right thumb top
-            finger_box_mid(Hand::Right, Finger::Index, ri),
-            vec![sp(1)],
-            finger_box_mid(Hand::Right, Finger::Middle, rm),
-            vec![sp(1)],
-            finger_box_mid(Hand::Right, Finger::Ring, rr),
-            vec![sp(1)],
-            finger_box_mid(Hand::Right, Finger::Pinky, rp),
-        ]
-        .concat(),
-    );
-
-    // Row 3: bottom of four fingers + thumb mids
-    let lt_mid = if lt {
-        Span::styled("│█│", lt_s)
-    } else {
-        Span::styled("│ │", lt_s)
+        Style::default().fg(BORDER)
     };
-    let rt_mid = if rt {
-        Span::styled("│█│", rt_s)
-    } else {
-        Span::styled("│ │", rt_s)
-    };
-    let row3 = Line::from(
-        [
-            finger_box_bot(Hand::Left, Finger::Pinky, lp),
-            vec![sp(1)],
-            finger_box_bot(Hand::Left, Finger::Ring, lr),
-            vec![sp(1)],
-            finger_box_bot(Hand::Left, Finger::Middle, lm),
-            vec![sp(1)],
-            finger_box_bot(Hand::Left, Finger::Index, li),
-            vec![sp(1), lt_mid, sp(1)],
-            vec![rt_mid, sp(1)],
-            finger_box_bot(Hand::Right, Finger::Index, ri),
-            vec![sp(1)],
-            finger_box_bot(Hand::Right, Finger::Middle, rm),
-            vec![sp(1)],
-            finger_box_bot(Hand::Right, Finger::Ring, rr),
-            vec![sp(1)],
-            finger_box_bot(Hand::Right, Finger::Pinky, rp),
-        ]
-        .concat(),
-    );
-
-    // Row 4: thumb bottoms only
-    let row4 = Line::from(vec![
-        sp(21),
-        Span::styled("└─┘", lt_s),
-        sp(1),
-        Span::styled("└─┘", rt_s),
-    ]);
-
-    vec![row0, row1, row2, row3, row4]
+    Line::from(vec![
+        Span::raw("     "),
+        Span::styled("╰─────────── space ───────────╯", style),
+    ])
 }
 
-// ── Keyboard rows ─────────────────────────────────────────────────────────────
-
-fn build_keyboard_rows(active_char: Option<char>) -> Vec<Line<'static>> {
-    let active =
-        active_char.and_then(|c| key_finger(c).map(|h| (c.to_ascii_lowercase(), h.hand, h.finger)));
-
-    let offsets = ["", " ", "  "]; // stagger per row
-
-    let mut lines: Vec<Line<'static>> = ROWS
-        .iter()
-        .enumerate()
-        .map(|(row_i, keys)| {
-            let mut spans = vec![Span::raw(offsets[row_i])];
-            for &k in *keys {
-                let is_active = active.is_some_and(|(ac, _, _)| ac == k);
-                let (hand, finger) = key_finger(k)
-                    .map(|h| (h.hand, h.finger))
-                    .unwrap_or((Hand::Left, Finger::Pinky));
-                let label = format!("[{}]", k);
-                spans.push(Span::styled(label, key_style(hand, finger, is_active)));
-            }
-            Line::from(spans)
-        })
-        .collect();
-
-    // Space bar
-    let space_active = active_char == Some(' ');
-    let space_style = key_style(Hand::Right, Finger::Thumb, space_active);
-    lines.push(Line::from(vec![
-        sp(7),
-        Span::styled("[        space        ]", space_style),
-    ]));
-
-    lines
+fn legend_line() -> Line<'static> {
+    let chip = |label: &str, color: Color| {
+        vec![
+            Span::styled("▮", Style::default().fg(color)),
+            Span::styled(format!(" {}  ", label), Style::default().fg(Color::Gray)),
+        ]
+    };
+    Line::from(
+        [
+            vec![Span::raw("  ")],
+            chip("pinky", Color::Magenta),
+            chip("ring", Color::Blue),
+            chip("middle", Color::Cyan),
+            chip("index", Color::Green),
+            chip("thumb", Color::White),
+        ]
+        .concat(),
+    )
 }
 
 // ── Public render entry point ─────────────────────────────────────────────────
 
 /// Renders the finger guide into `area`.
 /// `next_char` is the character the player needs to type next.
-pub fn render_finger_guide(f: &mut Frame, area: ratatui::layout::Rect, next_char: Option<char>) {
-    let hint = next_char.and_then(|c| key_finger(c).map(|h| (h.hand, h.finger)));
+pub fn render_finger_guide(f: &mut Frame, area: Rect, next_char: Option<char>) {
+    let active = next_char.map(|c| c.to_ascii_lowercase());
 
     let mut lines: Vec<Line> = Vec::new();
-
-    // Hands (5 rows)
-    lines.extend(build_hand_rows(hint));
-
-    // Separator
-    lines.push(Line::from(Span::raw(
-        "─".repeat(area.width.saturating_sub(2) as usize),
-    )));
-
-    // Keyboard (4 rows: 3 letter rows + space)
-    lines.extend(build_keyboard_rows(next_char));
+    lines.push(cue_line(next_char));
+    lines.push(Line::from(""));
+    lines.extend(grid(0, &[ROW_TOP, ROW_HOME], active));
+    lines.extend(grid(2, &[ROW_BOT], active));
+    lines.push(space_line(next_char == Some(' ')));
+    lines.push(legend_line());
 
     let block = Block::default()
         .title(" Finger Guide  [Tab] toggle ")
         .borders(Borders::ALL)
-        .border_style(Style::default().fg(Color::DarkGray));
+        .border_style(Style::default().fg(BORDER));
 
-    let p = Paragraph::new(lines).block(block);
-    f.render_widget(p, area);
+    f.render_widget(Paragraph::new(lines).block(block), area);
 }
 
 // ── Height constant (used by callers to reserve layout space) ─────────────────
 
-/// Total height the finger guide occupies (border + hands + sep + keyboard).
-pub const GUIDE_HEIGHT: u16 = 13; // 2 border + 5 hands + 1 sep + 4 keys + 1 space row
+/// Total height the finger guide occupies (border + cue + blank + 2 grids + space + legend).
+pub const GUIDE_HEIGHT: u16 = 14;
