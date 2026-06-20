@@ -59,3 +59,55 @@ def list_files(directory):
         if os.path.isfile(path):
             files.append(entry)
     return sorted(files)
+---
+from dataclasses import dataclass
+
+@dataclass
+class Point:
+    x: float
+    y: float
+
+    def distance_to(self, other):
+        dx = self.x - other.x
+        dy = self.y - other.y
+        return (dx * dx + dy * dy) ** 0.5
+---
+def quicksort(arr):
+    if len(arr) <= 1:
+        return arr
+    pivot = arr[len(arr) // 2]
+    left = [x for x in arr if x < pivot]
+    mid = [x for x in arr if x == pivot]
+    right = [x for x in arr if x > pivot]
+    return quicksort(left) + mid + quicksort(right)
+---
+import json
+
+def load_config(path):
+    with open(path) as f:
+        config = json.load(f)
+    return {k: v for k, v in config.items() if v is not None}
+---
+def memoize(func):
+    cache = {}
+    def wrapper(*args):
+        if args not in cache:
+            cache[args] = func(*args)
+        return cache[args]
+    return wrapper
+---
+async def fetch_all(urls):
+    results = []
+    for url in urls:
+        data = await fetch(url)
+        results.append(data)
+    return results
+---
+def flatten(nested):
+    result = []
+    for item in nested:
+        if isinstance(item, list):
+            result.extend(flatten(item))
+        else:
+            result.append(item)
+    return result

@@ -89,3 +89,51 @@ fn read_lines(path: &str) -> io::Result<Vec<String>> {
     let reader = io::BufReader::new(file);
     reader.lines().collect()
 }
+---
+fn fizzbuzz(n: u32) {
+    for i in 1..=n {
+        match (i % 3, i % 5) {
+            (0, 0) => println!("FizzBuzz"),
+            (0, _) => println!("Fizz"),
+            (_, 0) => println!("Buzz"),
+            _ => println!("{}", i),
+        }
+    }
+}
+---
+#[derive(Debug, Clone)]
+enum Shape {
+    Circle(f64),
+    Rectangle(f64, f64),
+}
+
+impl Shape {
+    fn area(&self) -> f64 {
+        match self {
+            Shape::Circle(r) => std::f64::consts::PI * r * r,
+            Shape::Rectangle(w, h) => w * h,
+        }
+    }
+}
+---
+fn parse_numbers(input: &str) -> Vec<i32> {
+    input
+        .split(',')
+        .filter_map(|s| s.trim().parse().ok())
+        .collect()
+}
+---
+fn gcd(a: u64, b: u64) -> u64 {
+    if b == 0 {
+        a
+    } else {
+        gcd(b, a % b)
+    }
+}
+---
+use std::collections::HashSet;
+
+fn unique_chars(text: &str) -> usize {
+    let set: HashSet<char> = text.chars().collect();
+    set.len()
+}
