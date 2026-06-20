@@ -2,12 +2,32 @@
 name = "etype"
 version = "0.1.0"
 edition = "2021"
+rust-version = "1.74"
+authors = ["EbaAdisu <ebaadisu2@gmail.com>"]
 description = "A fully local, terminal-based typing trainer — four modes, XP system, key heatmap"
 license = "MIT"
 readme = "README.md"
+repository = "https://github.com/EbaAdisu/etype"
+homepage = "https://github.com/EbaAdisu/etype"
 keywords = ["typing", "tui", "terminal", "wpm", "practice"]
 categories = ["command-line-utilities", "games"]
 exclude = [".github", "docs", "CLAUDE.md"]
+
+[package.metadata.deb]
+maintainer = "EbaAdisu <ebaadisu2@gmail.com>"
+copyright = "2026, EbaAdisu <ebaadisu2@gmail.com>"
+license-file = ["LICENSE", "0"]
+extended-description = """\
+etype is a fully local, terminal-based typing trainer with four game modes \
+(Word Rush, Sentence, Code Snippets, Survival), an XP/level/streak system, \
+and a per-key heatmap. No network and no accounts — all data stays in SQLite \
+under your home directory."""
+section = "games"
+priority = "optional"
+assets = [
+    ["target/release/etype", "usr/bin/", "755"],
+    ["README.md", "usr/share/doc/etype/README.md", "644"],
+]
 
 [lib]
 name = "etype"
