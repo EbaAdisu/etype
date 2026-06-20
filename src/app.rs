@@ -61,6 +61,7 @@ pub struct App {
     pub profile: Profile,
     pub running: bool,
     pub level_up_anim: Option<u32>,
+    pub show_finger_guide: bool,
     // cached DB data for stats/heatmap screens
     pub cached_pbs: HashMap<(String, String), f64>,
     pub cached_sessions: Vec<db::SessionRow>,
@@ -76,6 +77,7 @@ impl App {
             profile,
             running: true,
             level_up_anim: None,
+            show_finger_guide: false,
             cached_pbs: HashMap::new(),
             cached_sessions: Vec::new(),
             cached_heatmap: HashMap::new(),

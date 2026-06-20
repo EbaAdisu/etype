@@ -3,14 +3,17 @@ use crate::modes::code_snippet::CodeState;
 use crate::modes::sentence::SentenceState;
 use crate::modes::survival::SurvivalState;
 use crate::modes::word_rush::WordRushState;
+use crate::ui::finger_guide::{render_finger_guide, GUIDE_HEIGHT};
 use ratatui::layout::{Constraint, Direction, Layout, Rect};
 use ratatui::style::{Color, Modifier, Style};
 use ratatui::text::{Line, Span};
 use ratatui::widgets::{Block, Borders, Gauge, Paragraph};
 use ratatui::Frame;
 
-pub fn render_word_rush(f: &mut Frame, state: &WordRushState) {
-    let area = f.area();
+pub fn render_word_rush(f: &mut Frame, state: &WordRushState, show_guide: bool) {
+    let full = f.area();
+    let (area, guide_area) = split_guide(full, show_guide);
+
     let chunks = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
@@ -87,6 +90,14 @@ pub fn render_word_rush(f: &mut Frame, state: &WordRushState) {
     ]))
     .block(Block::default().borders(Borders::ALL));
     f.render_widget(input_p, chunks[4]);
+
+    if let Some(ga) = guide_area {
+        let next_char = state
+            .words
+            .get(state.current_idx)
+            .and_then(|w| w.chars().nth(state.input.len()));
+        render_finger_guide(f, ga, next_char);
+    }
 }
 
 fn build_word_line(state: &WordRushState) -> Line<'static> {
@@ -115,8 +126,10 @@ fn build_word_line(state: &WordRushState) -> Line<'static> {
     Line::from(spans)
 }
 
-pub fn render_sentence(f: &mut Frame, state: &SentenceState) {
-    let area = f.area();
+pub fn render_sentence(f: &mut Frame, state: &SentenceState, show_guide: bool) {
+    let full = f.area();
+    let (area, guide_area) = split_guide(full, show_guide);
+
     let chunks = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
@@ -172,6 +185,14 @@ pub fn render_sentence(f: &mut Frame, state: &SentenceState) {
     ]))
     .block(Block::default().borders(Borders::ALL));
     f.render_widget(input_p, chunks[3]);
+
+    if let Some(ga) = guide_area {
+        let next_char = state
+            .words
+            .get(state.current_word)
+            .and_then(|w| w.chars().nth(state.input.len()));
+        render_finger_guide(f, ga, next_char);
+    }
 }
 
 fn build_sentence_display(state: &SentenceState) -> Line<'static> {
@@ -212,8 +233,10 @@ fn build_sentence_display(state: &SentenceState) -> Line<'static> {
     Line::from(spans)
 }
 
-pub fn render_code(f: &mut Frame, state: &CodeState) {
-    let area = f.area();
+pub fn render_code(f: &mut Frame, state: &CodeState, show_guide: bool) {
+    let full = f.area();
+    let (area, guide_area) = split_guide(full, show_guide);
+
     let chunks = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
@@ -272,10 +295,20 @@ pub fn render_code(f: &mut Frame, state: &CodeState) {
     ]))
     .block(Block::default().borders(Borders::ALL));
     f.render_widget(input_p, chunks[2]);
+
+    if let Some(ga) = guide_area {
+        let next_char = state
+            .lines
+            .get(state.current_line)
+            .and_then(|l| l.chars().nth(state.input.len()));
+        render_finger_guide(f, ga, next_char);
+    }
 }
 
-pub fn render_survival(f: &mut Frame, state: &SurvivalState) {
-    let area = f.area();
+pub fn render_survival(f: &mut Frame, state: &SurvivalState, show_guide: bool) {
+    let full = f.area();
+    let (area, guide_area) = split_guide(full, show_guide);
+
     let chunks = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
@@ -315,6 +348,18 @@ pub fn render_survival(f: &mut Frame, state: &SurvivalState) {
     ]))
     .block(Block::default().borders(Borders::ALL));
     f.render_widget(input_p, chunks[2]);
+
+    if let Some(ga) = guide_area {
+        // Show guide for whichever word the user is currently targeting
+        let typed = state.input.trim();
+        let next_char = state
+            .words
+            .iter()
+            .find(|w| w.text.starts_with(typed) && !typed.is_empty())
+            .and_then(|w| w.text.chars().nth(typed.len()))
+            .or_else(|| state.words.first().and_then(|w| w.text.chars().next()));
+        render_finger_guide(f, ga, next_char);
+    }
 }
 
 fn render_falling_words(f: &mut Frame, state: &SurvivalState, area: Rect) {
@@ -370,4 +415,17 @@ fn render_falling_words(f: &mut Frame, state: &SurvivalState, area: Rect) {
             f.render_widget(Paragraph::new(Line::from(spans)), word_area);
         }
     }
+}
+
+/// Split `area` into (game_area, Some(guide_area)) when the guide is visible,
+/// or return (area, None) when it is hidden.
+fn split_guide(area: Rect, show: bool) -> (Rect, Option<Rect>) {
+    if !show {
+        return (area, None);
+    }
+    let parts = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([Constraint::Min(0), Constraint::Length(GUIDE_HEIGHT)])
+        .split(area);
+    (parts[0], Some(parts[1]))
 }
