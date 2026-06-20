@@ -24,12 +24,9 @@ Reasoning: keep the two packagers isolated so each can be reviewed/tested on its
 
 ## ▶️ RESUME HERE (current status)
 
-- **Active branch:** `feat/packaging-deb`
-- **Phase:** 1 (.deb) — **build done & verified, AWAITING USER TEST.**
-- **Artifact built:** `target/debian/etype_0.1.0-1_amd64.deb` (1.3 MB,
-  `Depends: libc6 (>= 2.34)` only, binary → `/usr/bin/etype`).
-- **Next action:** user installs & runs it (test box below). After it passes:
-  merge `feat/packaging-deb` → `main`, then start Phase 2 (Snap) on a new branch.
+- **Phase 1 (.deb): DONE** — tested OK by user, merged to `main`.
+- **Phase 2 (Snap): IN PROGRESS** on branch `feat/packaging-snap`.
+- **Next action:** see the first unchecked box in Phase 2 below.
 
 ---
 
@@ -42,9 +39,8 @@ Reasoning: keep the two packagers isolated so each can be reviewed/tested on its
 - [x] `cargo deb` → produced `target/debian/etype_0.1.0-1_amd64.deb`.
 - [x] Inspect package: contents OK (binary at `usr/bin/etype`), deps = `libc6` only.
 - [x] Commit on `feat/packaging-deb`.
-- [ ] **USER TEST:** `sudo apt install ./target/debian/etype_0.1.0-1_amd64.deb` then run
-      `etype`; confirm it launches and writes `~/.local/share/etype/etype.db`.
-- [ ] Merge `feat/packaging-deb` → `main`, push.
+- [x] **USER TEST:** install + run `etype` — passed.
+- [x] Merge `feat/packaging-deb` → `main`, push.
 
 **Acceptance:** `sudo apt install ./etype_*.deb && etype` launches the TUI; `which etype`
 → `/usr/bin/etype`; `sudo apt remove etype` cleans up.
